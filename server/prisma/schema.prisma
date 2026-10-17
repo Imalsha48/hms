@@ -204,8 +204,10 @@ model PatientDocument {
   patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   title      String
   fileName   String
-  filePath   String
   mimeType   String
+  size       Int      @default(0)
+  // File bytes are stored in the database so they survive restarts on cloud hosting
+  data       Bytes?   @db.LongBlob
   uploadedAt DateTime @default(now())
 }
 
@@ -295,6 +297,7 @@ model Prescription {
   status          PrescriptionStatus @default(PENDING)
   createdAt       DateTime           @default(now())
   dispensedAt     DateTime?
+  dispensedById   Int?
 
   items           PrescriptionItem[]
 }
@@ -335,7 +338,9 @@ model LabRequest {
   sampleCollectedAt DateTime?
   result            String?     @db.Text
   resultEnteredAt   DateTime?
-  reportPath        String?
+  reportName        String?
+  reportMime        String?
+  reportData        Bytes?      @db.LongBlob
   createdAt         DateTime    @default(now())
 
   @@index([status])

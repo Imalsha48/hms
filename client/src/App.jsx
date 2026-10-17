@@ -9,6 +9,9 @@ import PatientDetail from './pages/PatientDetail';
 import Doctors from './pages/Doctors';
 import Appointments from './pages/Appointments';
 import ChangePassword from './pages/ChangePassword';
+import Consultation from './pages/Consultation';
+import Lab from './pages/Lab';
+import Pharmacy from './pages/Pharmacy';
 
 // Blocks the page unless logged in (and, if roles are given, has one of them)
 function Protected({ roles, children }) {
@@ -29,6 +32,9 @@ export default function App() {
         <Route path="patients/:id" element={<PatientDetail />} />
         <Route path="doctors" element={<Doctors />} />
         <Route path="appointments" element={<Protected roles={['RECEPTIONIST', 'NURSE', 'DOCTOR']}><Appointments /></Protected>} />
+        <Route path="consultation" element={<Protected roles={['DOCTOR']}><Consultation /></Protected>} />
+        <Route path="lab" element={<Protected roles={['LAB_STAFF', 'DOCTOR', 'NURSE']}><Lab /></Protected>} />
+        <Route path="pharmacy" element={<Protected roles={['PHARMACIST', 'DOCTOR']}><Pharmacy /></Protected>} />
         <Route path="change-password" element={<ChangePassword />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,26 +1,24 @@
-// File uploads (patient documents, lab reports) using multer
+// File uploads (patient documents, lab reports) using multer.
+// Files are kept in memory and then saved into the database, because free cloud
+// hosting (Render) deletes files written to disk whenever the app restarts.
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const AppError = require('../utils/AppError');
 
 const ALLOWED = ['application/pdf', 'image/jpeg', 'image/png'];
 
-function uploader(subfolder) {
-  const dir = path.join(__dirname, '..', '..', 'uploads', subfolder);
-  fs.mkdirSync(dir, { recursive: true });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (req, file, cb) =>
+    ALLOWED.includes(file.mimetype) ? cb(null, true) : cb(new AppError('Only PDF, JPG and PNG files are allowed')),
+});
 
-  return multer({
-    storage: multer.diskStorage({
-      destination: dir,
-      // Random name so users can't overwrite each other's files
-      filename: (req, file, cb) =>
-        cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname).toLowerCase()}`),
-    }),
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-    fileFilter: (req, file, cb) =>
-      ALLOWED.includes(file.mimetype) ? cb(null, true) : cb(new AppError('Only PDF, JPG and PNG files are allowed')),
-  });
+// Sends stored bytes back to the browser as a file
+function sendFile(res, { data, mimeType, fileName }) {
+  if (!data) throw new AppError('File not found. Please upload it again.', 404);
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+  res.send(Buffer.from(data));
 }
 
-module.exports = uploader;
+module.exports = { upload, sendFile };

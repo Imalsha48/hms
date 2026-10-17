@@ -89,12 +89,33 @@ The Vite dev server forwards `/api` calls to port 5000, so no extra config is ne
 | PUT | `/api/doctors/:id/schedules` | Admin |
 | GET / POST | `/api/appointments` (`?date=&doctorId=`) | Receptionist, Nurse, Doctor (doctors see only their own) |
 | PATCH | `/api/appointments/:id/reschedule` · `/cancel` · `/complete` | Receptionist, Nurse, Doctor |
+| GET / POST | `/api/records` (`?patientId=`) | View: clinical staff · Create: Doctor (saves record + prescription + lab orders together) |
+| GET | `/api/lab/tests` · POST / PUT `/api/lab/tests` | View: all · Change: Lab staff |
+| GET / POST | `/api/lab/requests` (`?status=`) | Lab staff, Doctor, Nurse · Create: Doctor |
+| PATCH | `/api/lab/requests/:id/collect` · `/result` · `/cancel` | Lab staff (collect: also Nurse; cancel: also Doctor) |
+| GET | `/api/lab/requests/:id/report` | Logged in |
+| GET / POST / PUT | `/api/pharmacy/medicines` | View: all · Change: Pharmacist |
+| POST | `/api/pharmacy/medicines/:id/batches` | Pharmacist (receive stock) |
+| GET | `/api/pharmacy/prescriptions` (`?status=PENDING`) | Pharmacist, Doctor, Nurse |
+| POST | `/api/pharmacy/prescriptions/:id/dispense` | Pharmacist |
 
 ## Business rules (appointments)
 - Cannot book in the past
 - Must fall inside the doctor's weekly schedule
 - A doctor cannot have two overlapping appointments; neither can a patient
 - Rescheduling re-checks all of the above
+
+## Business rules (consultation, lab, pharmacy)
+- A consultation saves the medical record, prescription and lab orders in **one transaction**, and completes the appointment. If any part fails, nothing is saved
+- A doctor can only write a record for their own appointment
+- Lab requests move strictly `REQUESTED -> SAMPLE_COLLECTED -> COMPLETED`; a step can't be skipped
+- Stock is tracked per **batch** with its own expiry date
+- Dispensing uses **FEFO** (First Expiry, First Out). Expired batches are never dispensed
+- A prescription is only dispensed if **every** medicine has enough stock (no half-dispensing)
+- Uploaded files are stored in the database, so they survive restarts on cloud hosting
+
+## Deployment
+See [DEPLOY.md](DEPLOY.md) (Aiven MySQL + Render, one URL for the whole system).
 
 ## Security features (spec section 4)
 - Passwords hashed with bcrypt (never stored in plain text)

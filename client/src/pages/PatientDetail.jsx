@@ -1,17 +1,18 @@
 // Patient profile with full medical history (spec 3.2 + 3.5)
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert, Box, Button, Chip, Grid, IconButton, Link, Paper, Skeleton, Stack, Tab, Table, TableBody,
   TableCell, TableHead, TableRow, Tabs, TextField, Typography,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import NoteAddIcon from '@mui/icons-material/NoteAddOutlined';
 import UploadIcon from '@mui/icons-material/UploadFileOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import PageHeader from '../components/PageHeader';
 import PatientForm from '../components/PatientForm';
 import StatusChip from '../components/StatusChip';
-import api, { errMsg } from '../api/client';
+import api, { errMsg, openFile } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { age, fmtDate, fmtDateTime, fmtMoney, fullName } from '../utils';
 
@@ -37,7 +38,8 @@ const Info = ({ label, value }) => (
 
 export default function PatientDetail() {
   const { id } = useParams();
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
+  const navigate = useNavigate();
   const [p, setP] = useState(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState(0);
@@ -83,7 +85,14 @@ export default function PatientDetail() {
       <PageHeader
         title={fullName(p)}
         subtitle={`${p.patientNo} · ${age(p.dateOfBirth)} years · ${p.gender.toLowerCase()}`}
-        action={canEdit && <Button startIcon={<EditIcon />} variant="outlined" onClick={() => setEditOpen(true)}>Edit details</Button>}
+        action={
+          <Stack direction="row" spacing={1}>
+            {user.role === 'DOCTOR' && (
+              <Button startIcon={<NoteAddIcon />} variant="contained" onClick={() => navigate(`/consultation?patientId=${p.id}`)}>New consultation</Button>
+            )}
+            {canEdit && <Button startIcon={<EditIcon />} variant="outlined" onClick={() => setEditOpen(true)}>Edit details</Button>}
+          </Stack>
+        }
       />
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {p.allergies && <Alert severity="warning" sx={{ mb: 2 }}><b>Allergies:</b> {p.allergies}</Alert>}
@@ -136,6 +145,7 @@ export default function PatientDetail() {
 
           {tab === 4 && <SimpleTable rows={p.labRequests} empty="No lab tests" columns={[
             ['Requested', (r) => fmtDate(r.createdAt)], ['Test', (r) => r.testType.name], ['Result', (r) => r.result || '-'],
+            ['Report', (r) => (r.reportName ? <Link component="button" onClick={() => openFile(`/lab/requests/${r.id}/report`)}>{r.reportName}</Link> : '-')],
             ['Status', (r) => <StatusChip status={r.status} />],
           ]} />}
 
@@ -161,7 +171,7 @@ export default function PatientDetail() {
                 </Stack>
               )}
               <SimpleTable rows={p.documents} empty="No documents uploaded" columns={[
-                ['Title', (d) => <Link href={d.filePath} target="_blank" rel="noreferrer">{d.title}</Link>],
+                ['Title', (d) => <Link component="button" onClick={() => openFile(`/patients/${p.id}/documents/${d.id}/file`)}>{d.title}</Link>],
                 ['Type', (d) => <Chip size="small" label={d.mimeType.split('/')[1].toUpperCase()} />],
                 ['Uploaded', (d) => fmtDateTime(d.uploadedAt)],
                 ['', (d) => canEdit && <IconButton size="small" onClick={() => removeDoc(d.id)}><DeleteIcon fontSize="small" /></IconButton>],

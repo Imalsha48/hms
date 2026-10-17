@@ -1,6 +1,6 @@
 // Appointments (spec 3.4): book, view by day, reschedule, cancel, complete
 import { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Alert, Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton,
   Link, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
@@ -137,6 +137,7 @@ function RescheduleDialog({ appt, onClose, onSaved }) {
 export default function Appointments() {
   const { user, hasRole } = useAuth();
   const isDoctor = user.role === 'DOCTOR';
+  const navigate = useNavigate();
   const [date, setDate] = useState(todayStr());
   const [doctorId, setDoctorId] = useState('');
   const [doctors, setDoctors] = useState([]);
@@ -219,7 +220,13 @@ export default function Appointments() {
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     {active(a) && (
                       <>
-                        {hasRole('DOCTOR', 'NURSE') && <Button size="small" color="success" onClick={() => action(a, 'complete')}>Complete</Button>}
+                        {isDoctor && (
+                          <Button size="small" variant="contained" color="success" sx={{ mr: 0.5 }}
+                            onClick={() => navigate(`/consultation?patientId=${a.patient.id}&appointmentId=${a.id}`)}>
+                            Consult
+                          </Button>
+                        )}
+                        {!isDoctor && hasRole('NURSE') && <Button size="small" color="success" onClick={() => action(a, 'complete')}>Complete</Button>}
                         <Button size="small" onClick={() => setRescheduling(a)}>Reschedule</Button>
                         <Button size="small" color="error" onClick={() => action(a, 'cancel')}>Cancel</Button>
                       </>

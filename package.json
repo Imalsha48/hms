@@ -1,0 +1,12 @@
+{
+  "name": "hms",
+  "private": true,
+  "description": "Hospital Management System - root scripts used by Render to build and start the whole app",
+  "scripts": {
+    "build": "npm install --prefix server && npm install --prefix client --include=dev && npm run build --prefix client && npm run migrate:deploy --prefix server",
+    "start": "npm start --prefix server"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

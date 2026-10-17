@@ -1,16 +1,13 @@
 // /api/patients  (spec 3.2 Patient Management)
 const router = require('express').Router();
-const fs = require('fs');
-const path = require('path');
 const prisma = require('../lib/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { authorize } = require('../middleware/auth');
-const uploader = require('../middleware/upload');
+const { upload, sendFile } = require('../middleware/upload');
 const { toId, paging } = require('../utils/validate');
 const patientService = require('../services/patientService');
 
-const upload = uploader('patients');
 const CAN_EDIT = ['RECEPTIONIST', 'NURSE', 'DOCTOR'];
 
 // GET /api/patients?search=saman&page=1&pageSize=20
@@ -69,11 +66,25 @@ router.post(
         patientId: toId(req.params.id),
         title: req.body.title || req.file.originalname,
         fileName: req.file.originalname,
-        filePath: `/uploads/patients/${req.file.filename}`,
         mimeType: req.file.mimetype,
+        size: req.file.size,
+        data: req.file.buffer,
       },
     });
     res.status(201).json(doc);
+  })
+);
+
+// GET /api/patients/:id/documents/:docId/file  (view/download)
+router.get(
+  '/:id/documents/:docId/file',
+  asyncHandler(async (req, res) => {
+    const doc = await prisma.patientDocument.findFirst({
+      where: { id: toId(req.params.docId), patientId: toId(req.params.id) },
+      omit: { data: false },
+    });
+    if (!doc) throw new AppError('Document not found', 404);
+    sendFile(res, doc);
   })
 );
 
@@ -81,8 +92,7 @@ router.delete(
   '/:id/documents/:docId',
   authorize(...CAN_EDIT),
   asyncHandler(async (req, res) => {
-    const doc = await prisma.patientDocument.delete({ where: { id: toId(req.params.docId) } });
-    fs.unlink(path.join(__dirname, '..', '..', doc.filePath), () => {}); // remove file from disk
+    await prisma.patientDocument.delete({ where: { id: toId(req.params.docId) } });
     res.json({ message: 'Document deleted' });
   })
 );

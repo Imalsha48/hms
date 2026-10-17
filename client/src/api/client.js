@@ -26,3 +26,16 @@ api.interceptors.response.use(
 export const errMsg = (err) => err.response?.data?.message || err.message || 'Something went wrong';
 
 export default api;
+
+// Opens a protected file (patient document / lab report) in a new tab.
+// A plain <a href> can't send the login token, so we download it with axios first.
+export async function openFile(url) {
+  const win = window.open('', '_blank'); // open immediately so popup blockers allow it
+  try {
+    const res = await api.get(url, { responseType: 'blob' });
+    win.location.href = URL.createObjectURL(res.data);
+  } catch (err) {
+    win.close();
+    alert(err.response?.status === 404 ? 'File not found. Please upload it again.' : 'Could not open the file');
+  }
+}

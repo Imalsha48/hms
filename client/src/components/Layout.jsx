@@ -11,6 +11,8 @@ import PeopleIcon from '@mui/icons-material/PeopleAltOutlined';
 import DoctorIcon from '@mui/icons-material/MedicalServicesOutlined';
 import EventIcon from '@mui/icons-material/EventOutlined';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import ScienceIcon from '@mui/icons-material/ScienceOutlined';
+import MedicationIcon from '@mui/icons-material/MedicationOutlined';
 import { useAuth } from '../context/AuthContext';
 
 const DRAWER = 236;
@@ -20,6 +22,8 @@ export const NAV = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/patients', label: 'Patients', icon: <PeopleIcon /> },
   { to: '/appointments', label: 'Appointments', icon: <EventIcon />, roles: ['RECEPTIONIST', 'NURSE', 'DOCTOR'] },
+  { to: '/lab', label: 'Laboratory', icon: <ScienceIcon />, roles: ['LAB_STAFF', 'DOCTOR', 'NURSE'] },
+  { to: '/pharmacy', label: 'Pharmacy', icon: <MedicationIcon />, roles: ['PHARMACIST', 'DOCTOR'] },
   { to: '/doctors', label: 'Doctors', icon: <DoctorIcon /> },
 ];
 
