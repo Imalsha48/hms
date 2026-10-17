@@ -1,148 +1,174 @@
 # Hospital Management System (HMS)
 
-Stack: **MySQL · Express · React · Node.js** (+ Prisma ORM, JWT auth)
+A web-based system that manages a hospital's patients, doctors, appointments, medical records,
+laboratory, pharmacy, billing, inpatient admissions, staff and reports, with role-based access for
+seven types of user.
+
+**Stack:** MySQL · Express · React · Node.js, with Prisma ORM, JWT authentication and Material UI.
+**Live demo:** _add your Render URL here_
+
+## Demo logins
+
+All demo accounts use the password `Password123`.
+
+| Role | Username | What to try |
+|---|---|---|
+| Administrator | `admin` | Everything, plus Users & security (audit log, backup) |
+| Doctor | `dr.perera` | Appointments, then Consult: diagnosis, prescription, lab tests |
+| Nurse | `nurse.kumari` | Check in, admit and discharge patients, collect lab samples |
+| Receptionist | `reception` | Register patients, book appointments, create invoices |
+| Lab staff | `lab` | Laboratory: collect sample, enter result, attach report |
+| Pharmacist | `pharmacist` | Pharmacy: dispense, receive stock, expiry alerts |
+| Accountant | `accountant` | Billing, payments, revenue reports |
 
 ## Architecture (spec section 5)
 
-| Layer | Where |
-|---|---|
-| Presentation | `client/` (React) |
-| Application | `server/src/routes/` (HTTP endpoints, validation) |
-| Business Logic | `server/src/services/` (rules, calculations) |
-| Database | `server/prisma/schema.prisma` + MySQL |
-
-Cross-cutting: `server/src/middleware/` holds authentication, role-based access control, audit logging and error handling.
-
-## Setup
-
-### 1. Install MySQL
-Install MySQL 8 (or XAMPP), then create the database:
-```sql
-CREATE DATABASE hms;
+```
+ Presentation layer     client/  React + Material UI (role-based menus, responsive)
+        |  HTTPS / JSON (JWT in the Authorization header)
+ Application layer      server/src/routes/       endpoints, input checks, role checks
+        |                server/src/middleware/   auth, RBAC, audit log, errors, uploads
+ Business logic layer   server/src/services/     booking rules, billing, FEFO dispensing, reports, backup
+        |
+ Database layer         server/prisma/schema.prisma  ->  MySQL (Prisma ORM, migrations)
 ```
 
-### 2. Backend
+In production, a single Express server on Render serves both the API (`/api/*`) and the built React
+app, so the whole system runs on one URL. The database is MySQL on Aiven.
+
+## How the spec is covered
+
+| Spec | Where |
+|---|---|
+| 3.1 User management: login, logout, passwords, roles, access control | Login page, Change password, Users & security; `middleware/auth.js` |
+| 3.2 Patients: register, update, search, history, documents | Patients and Patient profile (history tabs, document upload) |
+| 3.3 Doctors: add, update, departments, schedules | Doctors & departments (weekly schedule editor) |
+| 3.4 Appointments: book, cancel, reschedule, status | Appointments (day list + month calendar, free-slot picker) |
+| 3.5 Medical records: diagnosis, prescriptions, treatment history, reports | Consultation screen; Patient profile tabs |
+| 3.6 Laboratory: requests, sample collection, results, reports | Laboratory (workflow tabs, report upload) |
+| 3.7 Pharmacy: inventory, prescriptions, stock, expiry | Pharmacy (batches, FEFO dispensing, alerts) |
+| 3.8 Billing: consultation, lab, pharmacy, admission charges; invoices; payments | Billing (auto-collects unbilled charges, part payments, print receipt) |
+| 3.9 Staff: employees, attendance, departments, leave | Staff; dashboard check-in / check-out |
+| 3.10 Reports: patient, appointment, revenue, pharmacy, laboratory, staff | Reports (period filter, chart, CSV export) |
+| 4 Security: secure login, encryption, RBAC, audit logs, session timeout | bcrypt, JWT expiry + 15-minute idle logout, audit log viewer |
+| 4 Reliability: daily backup, recovery | Automatic daily/weekly backups, restore script (see below) |
+| 6 Database modules | `server/prisma/schema.prisma` (24 tables) |
+| 7 UI: login, dashboard, patient, appointment, billing screens | All implemented, including calendar view and printable receipt |
+
+## Key business rules
+
+**Appointments**
+- An appointment can't be booked in the past, and it must fall inside the doctor's weekly schedule.
+- A doctor can't have two overlapping appointments, and neither can a patient. Rescheduling re-checks these rules.
+
+**Consultation**
+- A consultation saves the record, prescription and lab orders in **one transaction**, and completes the appointment.
+- A doctor can only write records for their own appointments.
+
+**Laboratory**
+- A lab request follows `REQUESTED -> SAMPLE_COLLECTED -> COMPLETED`. Steps can't be skipped.
+
+**Pharmacy**
+- Stock is tracked per **batch** with its own expiry date.
+- Dispensing uses **FEFO** (first expiry, first out). Expired batches are never dispensed.
+- A prescription is never half-dispensed: every medicine must have enough stock first.
+
+**Billing**
+- Each charge (consultation, lab test, prescription, admission) can be billed **only once**.
+- Prices are recalculated on the server.
+- A discount can't exceed the subtotal, and a payment can't exceed the balance due.
+- Invoice status moves automatically: `UNPAID -> PARTIAL -> PAID`.
+
+**Admissions**
+- One patient per bed. Claiming a bed is atomic, so two nurses can't admit into the same bed.
+- Admission charge = days stayed (minimum 1) x ward daily rate.
+
+**Staff**
+- A check-in after 08:30 is marked LATE.
+- Leave can't overlap existing pending or approved leave.
+
+**Privacy and dates**
+- Receptionists and accountants can't see diagnoses, prescriptions or lab results.
+- Uploaded files are stored in the database. All server dates use the hospital time zone (`TZ=Asia/Colombo`).
+
+## Security (spec section 4)
+- Passwords are hashed with bcrypt. Login gives the same error for a wrong username or a wrong password.
+- JWT tokens expire after 8 hours. The frontend also logs users out after 15 minutes of inactivity.
+- Every route checks the user's role (`authorize(...)`). Deactivated accounts are blocked immediately.
+- Every create, update and delete is recorded in the audit log (passwords masked), as are logins and failed logins. Admins can filter it under Users & security.
+
+## Backup and disaster recovery (spec section 10)
+
+| What | How |
+|---|---|
+| Automatic daily backup | GitHub Actions (`.github/workflows/backup.yml`) backs up the whole database every night at 00:00 Sri Lanka time. Kept for 7 days. |
+| Weekly full backup | Sunday's backup is kept for 90 days. |
+| Manual backup | Admin: Users & security, Backup, then Download backup now. Or run `npm run backup` in `server/`. |
+| Format | One JSON file with every table, including uploaded files. It can be restored into any MySQL database. |
+| Audit trail | Every change is logged with who, what, when and from which IP. |
+
+**Recovery plan** (for example, the database is lost or corrupted):
+1. Download the latest backup: GitHub, Actions, Database backup, the newest run, Artifacts.
+2. Create a new empty MySQL database (on Aiven or locally) and point `DATABASE_URL` at it.
+3. In `server/`, run `npx prisma migrate deploy` to create the tables.
+4. Run `npm run restore -- path\to\hms-backup-....json --yes`. It runs in one transaction, so if it fails nothing changes.
+5. Update `DATABASE_URL` on Render if the database moved. Then log in and check the Dashboard and Reports.
+
+With nightly backups, at most one day of data can be lost. Recovery takes about 15–30 minutes.
+
+## Run locally
+
+Requirements: Node.js 20+, MySQL 8.
+
 ```bash
+# 1. Database (MySQL Workbench or the CLI)
+CREATE DATABASE hms;
+
+# 2. Backend
 cd server
 npm install
-cp .env.example .env        # then edit DATABASE_URL and JWT_SECRET
-npx prisma migrate dev --name init   # creates all tables
-npm run db:seed                      # sample data + logins
-npm run dev                          # API on http://localhost:5000
-```
+cp .env.example .env            # set DATABASE_URL and JWT_SECRET
+npx prisma migrate dev          # create the tables
+npm run db:seed                 # demo users, doctors, wards, lab tests, medicines
+npm run db:seed-demo            # optional: two weeks of past activity for reports
+npm run dev                     # API on http://localhost:5000
 
-Check it works: open http://localhost:5000/api/health
-
-### 3. Test login
-All seeded users have password `Password123`:
-
-| Role | Username |
-|---|---|
-| Admin | `admin` |
-| Doctor | `dr.perera`, `dr.fernando`, `dr.silva` |
-| Nurse | `nurse.kumari` |
-| Receptionist | `reception` |
-| Lab staff | `lab` |
-| Pharmacist | `pharmacist` |
-| Accountant | `accountant` |
-
-```bash
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"Password123"}'
-```
-Copy the `token` from the response, then:
-```bash
-curl http://localhost:5000/api/users -H "Authorization: Bearer <token>"
-```
-
-Tip: `npm run db:studio` opens a browser view of every table.
-
-### 4. Frontend
-```bash
+# 3. Frontend (second terminal)
 cd client
 npm install
-npm run dev        # opens on http://localhost:5173
+npm run dev                     # http://localhost:5173
 ```
-Keep the backend (`npm run dev` in `server/`) running in a second terminal.
-The Vite dev server forwards `/api` calls to port 5000, so no extra config is needed.
 
-## API so far
-
-| Method | Endpoint | Who |
-|---|---|---|
-| POST | `/api/auth/login` | Public |
-| GET | `/api/auth/me` | Logged in |
-| POST | `/api/auth/logout` | Logged in |
-| POST | `/api/auth/change-password` | Logged in |
-| GET / POST | `/api/users` | Admin |
-| PUT | `/api/users/:id` | Admin |
-| POST | `/api/users/:id/reset-password` | Admin |
-| GET | `/api/users/audit-logs` | Admin |
-| GET | `/api/dashboard` | Logged in |
-| GET / POST | `/api/patients` (`?search=&page=`) | View: all · Create: Receptionist, Nurse, Doctor |
-| GET / PUT / DELETE | `/api/patients/:id` | Delete: Admin only |
-| POST / DELETE | `/api/patients/:id/documents` | Receptionist, Nurse, Doctor |
-| GET / POST / PUT / DELETE | `/api/departments` | View: all · Change: Admin |
-| GET / POST / PUT | `/api/doctors` | View: all · Change: Admin |
-| GET | `/api/doctors/:id/slots?date=YYYY-MM-DD` | Logged in |
-| PUT | `/api/doctors/:id/schedules` | Admin |
-| GET / POST | `/api/appointments` (`?date=&doctorId=`) | Receptionist, Nurse, Doctor (doctors see only their own) |
-| PATCH | `/api/appointments/:id/reschedule` · `/cancel` · `/complete` | Receptionist, Nurse, Doctor |
-| GET / POST | `/api/records` (`?patientId=`) | View: clinical staff · Create: Doctor (saves record + prescription + lab orders together) |
-| GET | `/api/lab/tests` · POST / PUT `/api/lab/tests` | View: all · Change: Lab staff |
-| GET / POST | `/api/lab/requests` (`?status=`) | Lab staff, Doctor, Nurse · Create: Doctor |
-| PATCH | `/api/lab/requests/:id/collect` · `/result` · `/cancel` | Lab staff (collect: also Nurse; cancel: also Doctor) |
-| GET | `/api/lab/requests/:id/report` | Logged in |
-| GET / POST / PUT | `/api/pharmacy/medicines` | View: all · Change: Pharmacist |
-| POST | `/api/pharmacy/medicines/:id/batches` | Pharmacist (receive stock) |
-| GET | `/api/pharmacy/prescriptions` (`?status=PENDING`) | Pharmacist, Doctor, Nurse |
-| POST | `/api/pharmacy/prescriptions/:id/dispense` | Pharmacist |
-| GET | `/api/billing/unbilled?patientId=` | Accountant, Receptionist |
-| GET / POST | `/api/billing/invoices` (`?status=&search=&from=&to=`) | Accountant, Receptionist |
-| GET / DELETE | `/api/billing/invoices/:id` | Delete (void, only if unpaid): Accountant |
-| POST | `/api/billing/invoices/:id/payments` | Accountant, Receptionist |
-| GET | `/api/admissions/wards` · `/api/admissions` | Logged in |
-| POST · PATCH | `/api/admissions` · `/:id/transfer` · `/:id/discharge` | Nurse, Doctor, Receptionist |
-| GET / POST / PUT | `/api/staff/employees` | Admin |
-| GET / PUT | `/api/staff/attendance` (`?date=`) | Admin |
-| GET / PATCH | `/api/staff/leaves` · `/:id` (approve / reject) | Admin |
-| GET · POST | `/api/staff/me` · `/me/check-in` · `/me/check-out` · `POST /api/staff/leaves` | Any staff member with an employee record |
-
-## Business rules (appointments)
-- Cannot book in the past
-- Must fall inside the doctor's weekly schedule
-- A doctor cannot have two overlapping appointments; neither can a patient
-- Rescheduling re-checks all of the above
-
-## Business rules (consultation, lab, pharmacy)
-- A consultation saves the medical record, prescription and lab orders in **one transaction**, and completes the appointment. If any part fails, nothing is saved
-- A doctor can only write a record for their own appointment
-- Lab requests move strictly `REQUESTED -> SAMPLE_COLLECTED -> COMPLETED`; a step can't be skipped
-- Stock is tracked per **batch** with its own expiry date
-- Dispensing uses **FEFO** (First Expiry, First Out). Expired batches are never dispensed
-- A prescription is only dispensed if **every** medicine has enough stock (no half-dispensing)
-- Uploaded files are stored in the database, so they survive restarts on cloud hosting
-
-## Business rules (billing, admissions, staff)
-- An invoice is built from **unbilled** charges: completed consultations, lab tests, dispensed prescriptions and discharged admissions
-- Each charge can be billed **only once** (`invoiceId` links it to its invoice). Prices are always recalculated on the server
-- Discount can't be negative or larger than the subtotal; a payment can't exceed the balance due
-- Invoice status updates automatically: `UNPAID -> PARTIAL -> PAID`
-- An unpaid invoice can be voided, which makes its charges billable again
-- A bed can hold one patient; claiming a bed is atomic, so two nurses can't admit into the same bed
-- Admission charge = days stayed (any part of a day counts, minimum 1) x ward daily rate
-- Check-in after 08:30 is marked `LATE`. One attendance record per employee per day
-- Leave can't overlap another pending or approved leave for the same person
-- All server date logic uses the hospital time zone (`TZ=Asia/Colombo`)
+**Adding a database change on Windows.** Windows MySQL lowercases table names, but Linux (production) is case-sensitive. So for each new migration:
+```powershell
+npx prisma migrate dev --create-only --name <name>
+powershell -ExecutionPolicy Bypass -File scripts\fix-migration-case.ps1
+npx prisma migrate dev
+```
 
 ## Deployment
-See [DEPLOY.md](DEPLOY.md) (Aiven MySQL + Render, one URL for the whole system).
+See [DEPLOY.md](DEPLOY.md): MySQL on Aiven plus a Render web service. Every push to `main` redeploys automatically.
 
-## Security features (spec section 4)
-- Passwords hashed with bcrypt (never stored in plain text)
-- JWT tokens expire after `JWT_EXPIRES_IN`, which acts as the automatic session timeout
-- Role-based access control via `authorize('ROLE', ...)` middleware
-- Every create/update/delete is written to `AuditLog`, with passwords masked
-- Logged out automatically after 15 minutes of inactivity (frontend)
-- Same error for wrong username or wrong password (prevents username guessing)
+## API overview
+All endpoints are under `/api` and need a valid token (except `/api/auth/login` and `/api/health`).
+The admin role passes every role check.
+
+| Area | Endpoints |
+|---|---|
+| Auth | `POST auth/login`, `GET auth/me`, `POST auth/logout`, `POST auth/change-password` |
+| Users (admin) | `GET/POST users`, `PUT users/:id`, `POST users/:id/reset-password`, `GET users/audit-logs`, `GET users/backup` |
+| Patients | `GET/POST patients`, `GET/PUT/DELETE patients/:id`, `POST/DELETE patients/:id/documents`, `GET patients/:id/documents/:docId/file` |
+| Doctors | `GET/POST doctors`, `GET/PUT doctors/:id`, `GET doctors/:id/slots?date=`, `PUT doctors/:id/schedules`, `GET/POST/PUT/DELETE departments` |
+| Appointments | `GET/POST appointments`, `PATCH appointments/:id/reschedule`, `/cancel`, `/complete` |
+| Records | `GET/POST records` (consultation: record + prescription + lab orders) |
+| Laboratory | `GET/POST lab/tests`, `GET/POST lab/requests`, `PATCH lab/requests/:id/collect`, `/result`, `/cancel`, `GET lab/requests/:id/report` |
+| Pharmacy | `GET/POST/PUT pharmacy/medicines`, `POST pharmacy/medicines/:id/batches`, `GET pharmacy/prescriptions`, `POST pharmacy/prescriptions/:id/dispense` |
+| Billing | `GET billing/unbilled`, `GET/POST billing/invoices`, `GET/DELETE billing/invoices/:id`, `POST billing/invoices/:id/payments` |
+| Admissions | `GET admissions/wards`, `GET/POST admissions`, `PATCH admissions/:id/transfer`, `/discharge` |
+| Staff | `GET/POST/PUT staff/employees`, `GET/PUT staff/attendance`, `GET/POST staff/leaves`, `PATCH staff/leaves/:id`, `GET staff/me`, `POST staff/me/check-in`, `/check-out` |
+| Reports | `GET reports/:type?from=&to=` with type `patients`, `appointments`, `revenue`, `pharmacy`, `laboratory` or `staff`; add `&format=csv&table=0` for CSV |
+| Dashboard | `GET dashboard` |
+
+## Future enhancements (spec section 12)
+Mobile app · patient portal · SMS and email reminders · telemedicine · insurance claims · AI-based
+decision support (for example drug-allergy warnings and risk scoring) · biometric login.

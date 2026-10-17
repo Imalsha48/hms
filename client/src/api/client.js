@@ -39,3 +39,17 @@ export async function openFile(url) {
     alert(err.response?.status === 404 ? 'File not found. Please upload it again.' : 'Could not open the file');
   }
 }
+
+// Downloads a protected file (CSV export, backup) and saves it with the server's filename
+export async function downloadFile(url, params, fallbackName = 'download') {
+  const res = await api.get(url, { params, responseType: 'blob' });
+  const cd = res.headers['content-disposition'] || '';
+  const match = cd.match(/filename="?([^";]+)"?/);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(res.data);
+  a.download = match ? decodeURIComponent(match[1]) : fallbackName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}

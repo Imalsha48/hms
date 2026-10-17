@@ -24,7 +24,7 @@ router.get(
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    res.json(await patientService.getWithHistory(toId(req.params.id)));
+    res.json(await patientService.getWithHistory(toId(req.params.id), req.user.role));
   })
 );
 

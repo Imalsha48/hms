@@ -67,9 +67,6 @@ export default function Dashboard() {
     { label: "Today's appointments", value: data.todaysAppointments, icon: <EventIcon />, color: '#3f6fd8' },
     { label: 'Pending lab requests', value: data.pendingLab, icon: <ScienceIcon />, color: '#b7791f' },
     { label: 'Admitted patients', value: data.admitted, icon: <BedIcon />, color: '#7b4bc4' },
-    ...(hasRole('ACCOUNTANT')
-      ? [{ label: "Today's revenue", value: fmtMoney(data.revenueToday), icon: <PaymentsIcon />, color: '#2f855a' }]
-      : []),
   ];
 
   return (
@@ -78,11 +75,28 @@ export default function Dashboard() {
       <AttendanceCard />
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {(stats || Array.from({ length: 4 })).map((s, i) => (
-          <Grid item xs={12} sm={6} lg={stats && stats.length > 4 ? 2.4 : 3} key={i}>
+          <Grid item xs={12} sm={6} lg={3} key={i}>
             {s ? <StatCard {...s} /> : <Skeleton variant="rounded" height={90} />}
           </Grid>
         ))}
       </Grid>
+
+      {data && hasRole('ACCOUNTANT') && (
+        <Paper sx={{ p: 2.5, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+            <PaymentsIcon sx={{ color: '#2f855a' }} />
+            <Typography fontWeight={700}>Revenue summary</Typography>
+          </Box>
+          <Grid container spacing={2}>
+            {[["Collected today", data.revenueToday], ['Collected this month', data.revenueMonth], ['Outstanding (unpaid invoices)', data.outstanding]].map(([l, v]) => (
+              <Grid item xs={12} sm={4} key={l}>
+                <Typography variant="body2" color="text.secondary">{l}</Typography>
+                <Typography variant="h6" fontWeight={700}>{fmtMoney(v)}</Typography>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
+      )}
 
       {data && hasRole('PHARMACIST', 'DOCTOR') && (
         <Grid container spacing={2}>

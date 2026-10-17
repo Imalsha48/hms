@@ -58,8 +58,12 @@ async function list({ search, skip, take }) {
   return { items, total };
 }
 
-// Full medical history for the patient profile page
-async function getWithHistory(id) {
+// Who may see clinical details (diagnoses, prescriptions, lab results)
+const CLINICAL_ROLES = ['ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_STAFF'];
+
+// Full medical history for the patient profile page.
+// Non-clinical staff (receptionist, accountant) get the record without clinical details.
+async function getWithHistory(id, role) {
   const doctorInfo = { include: { user: { select: { fullName: true } } } };
   const patient = await prisma.patient.findUnique({
     where: { id },
@@ -77,6 +81,9 @@ async function getWithHistory(id) {
     },
   });
   if (!patient) throw new AppError('Patient not found', 404);
+  if (!CLINICAL_ROLES.includes(role)) {
+    return { ...patient, medicalRecords: [], prescriptions: [], labRequests: [], clinicalHidden: true };
+  }
   return patient;
 }
 

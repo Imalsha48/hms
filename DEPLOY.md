@@ -58,6 +58,26 @@ The last line makes sure your local commands go back to your local MySQL.
 
 From now on, every `git push` to `main` redeploys automatically. New database migrations run during the build (`prisma migrate deploy`).
 
+## 4. Demo data (optional, recommended)
+
+Fills the live site with two weeks of past activity, so the dashboard and reports aren't empty.
+Run it once, from your laptop, with the Aiven URL:
+
+```powershell
+$env:DATABASE_URL="<your Aiven URL>"
+npm run db:seed-demo
+Remove-Item Env:DATABASE_URL
+```
+
+## 5. Automatic daily backups (GitHub Actions)
+
+1. On GitHub, open your repo, then **Settings**, **Secrets and variables**, **Actions**, **New repository secret**.
+2. Name: `DATABASE_URL`. Value: your Aiven URL. Save.
+3. Open the **Actions** tab, choose **Database backup**, then **Run workflow** to test it now.
+4. When it finishes (green tick), open the run. The backup file is under **Artifacts**.
+
+From then on, it runs every night at 00:00 Sri Lanka time.
+
 ## Before sending the link
 
 - Change the `admin` password on the live site, or tell the reviewers the demo logins.

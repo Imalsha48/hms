@@ -100,17 +100,18 @@ export default function PatientDetail() {
       />
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {p.allergies && <Alert severity="warning" sx={{ mb: 2 }}><b>Allergies:</b> {p.allergies}</Alert>}
+      {p.clinicalHidden && <Alert severity="info" sx={{ mb: 2 }}>Diagnoses, prescriptions and lab results are only visible to clinical staff.</Alert>}
 
       <Paper>
         <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable" sx={{ borderBottom: '1px solid #e3e8ea', px: 1 }}>
-          <Tab label="Details" />
-          <Tab label={`Appointments (${p.appointments.length})`} />
-          <Tab label={`Medical records (${p.medicalRecords.length})`} />
-          <Tab label={`Prescriptions (${p.prescriptions.length})`} />
-          <Tab label={`Lab (${p.labRequests.length})`} />
-          <Tab label={`Admissions (${p.admissions.length})`} />
-          <Tab label={`Billing (${p.invoices.length})`} />
-          <Tab label={`Documents (${p.documents.length})`} />
+          <Tab label="Details" value={0} />
+          <Tab label={`Appointments (${p.appointments.length})`} value={1} />
+          {!p.clinicalHidden && <Tab label={`Medical records (${p.medicalRecords.length})`} value={2} />}
+          {!p.clinicalHidden && <Tab label={`Prescriptions (${p.prescriptions.length})`} value={3} />}
+          {!p.clinicalHidden && <Tab label={`Lab (${p.labRequests.length})`} value={4} />}
+          <Tab label={`Admissions (${p.admissions.length})`} value={5} />
+          <Tab label={`Billing (${p.invoices.length})`} value={6} />
+          <Tab label={`Documents (${p.documents.length})`} value={7} />
         </Tabs>
 
         <Box sx={{ p: 2 }}>

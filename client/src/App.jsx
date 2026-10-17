@@ -17,6 +17,8 @@ import NewInvoice from './pages/NewInvoice';
 import InvoiceDetail from './pages/InvoiceDetail';
 import Admissions from './pages/Admissions';
 import Staff from './pages/Staff';
+import Reports from './pages/Reports';
+import Users from './pages/Users';
 
 // Blocks the page unless logged in (and, if roles are given, has one of them)
 function Protected({ roles, children }) {
@@ -45,6 +47,8 @@ export default function App() {
         <Route path="billing/new" element={<Protected roles={['ACCOUNTANT', 'RECEPTIONIST']}><NewInvoice /></Protected>} />
         <Route path="billing/invoices/:id" element={<Protected roles={['ACCOUNTANT', 'RECEPTIONIST']}><InvoiceDetail /></Protected>} />
         <Route path="staff" element={<Staff />} />
+        <Route path="reports" element={<Protected roles={['ACCOUNTANT', 'PHARMACIST', 'LAB_STAFF']}><Reports /></Protected>} />
+        <Route path="users" element={<Protected roles={[]}><Users /></Protected>} />
         <Route path="change-password" element={<ChangePassword />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

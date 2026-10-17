@@ -3,12 +3,14 @@ import { useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Alert, Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton,
-  Link, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
+  Link, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, ToggleButton,
+  ToggleButtonGroup, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import PageHeader from '../components/PageHeader';
+import MonthCalendar from '../components/MonthCalendar';
 import StatusChip from '../components/StatusChip';
 import api, { errMsg } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -145,6 +147,7 @@ export default function Appointments() {
   const [error, setError] = useState('');
   const [bookOpen, setBookOpen] = useState(false);
   const [rescheduling, setRescheduling] = useState(null);
+  const [view, setView] = useState('day');
 
   useEffect(() => { api.get('/doctors', { params: { active: 'true' } }).then((r) => setDoctors(r.data)); }, []);
 
@@ -189,6 +192,10 @@ export default function Appointments() {
             <IconButton onClick={() => shiftDay(1)}><ChevronRight /></IconButton>
           </Stack>
           <Button size="small" onClick={() => setDate(todayStr())}>Today</Button>
+          <ToggleButtonGroup size="small" exclusive value={view} onChange={(e, v) => v && setView(v)}>
+            <ToggleButton value="day" sx={{ textTransform: 'none', px: 1.5 }}>Day</ToggleButton>
+            <ToggleButton value="month" sx={{ textTransform: 'none', px: 1.5 }}>Month</ToggleButton>
+          </ToggleButtonGroup>
           {!isDoctor && (
             <TextField select label="Doctor" value={doctorId} onChange={(e) => setDoctorId(e.target.value)} sx={{ maxWidth: 260 }}>
               <MenuItem value="">All doctors</MenuItem>
@@ -197,7 +204,10 @@ export default function Appointments() {
           )}
         </Stack>
 
-        <Box sx={{ overflowX: 'auto' }}>
+        {view === 'month' && (
+          <MonthCalendar doctorId={doctorId} selected={date} onPick={(d) => { setDate(d); setView('day'); }} />
+        )}
+        {view === 'day' && <Box sx={{ overflowX: 'auto' }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -239,7 +249,7 @@ export default function Appointments() {
               )}
             </TableBody>
           </Table>
-        </Box>
+        </Box>}
       </Paper>
 
       <BookDialog open={bookOpen} doctors={doctors} onClose={() => setBookOpen(false)} onSaved={() => { setBookOpen(false); load(); }} />

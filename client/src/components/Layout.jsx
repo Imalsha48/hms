@@ -16,6 +16,8 @@ import MedicationIcon from '@mui/icons-material/MedicationOutlined';
 import BedIcon from '@mui/icons-material/HotelOutlined';
 import ReceiptIcon from '@mui/icons-material/ReceiptLongOutlined';
 import BadgeIcon from '@mui/icons-material/BadgeOutlined';
+import ReportIcon from '@mui/icons-material/AssessmentOutlined';
+import SecurityIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import { useAuth } from '../context/AuthContext';
 
 const DRAWER = 236;
@@ -31,6 +33,8 @@ export const NAV = [
   { to: '/billing', label: 'Billing', icon: <ReceiptIcon />, roles: ['ACCOUNTANT', 'RECEPTIONIST'] },
   { to: '/doctors', label: 'Doctors', icon: <DoctorIcon /> },
   { to: '/staff', label: 'Staff', icon: <BadgeIcon /> },
+  { to: '/reports', label: 'Reports', icon: <ReportIcon />, roles: ['ACCOUNTANT', 'PHARMACIST', 'LAB_STAFF'] },
+  { to: '/users', label: 'Users & security', icon: <SecurityIcon />, roles: [] }, // [] = admin only
 ];
 
 const prettyRole = (r) => r.replace('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());

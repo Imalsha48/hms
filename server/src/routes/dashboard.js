@@ -11,8 +11,9 @@ router.get(
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(todayStart.getTime() + 86400000);
     const in30Days = new Date(todayStart.getTime() + 30 * 86400000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [totalPatients, todaysAppointments, pendingLab, admitted, revenueToday, expiringBatches, medicines] =
+    const [totalPatients, todaysAppointments, pendingLab, admitted, revenueToday, expiringBatches, medicines, revenueMonth, outstanding] =
       await Promise.all([
         prisma.patient.count(),
         prisma.appointment.count({
@@ -27,6 +28,8 @@ router.get(
           orderBy: { expiryDate: 'asc' },
         }),
         prisma.medicine.findMany({ include: { batches: { where: { expiryDate: { gt: now } } } } }),
+        prisma.payment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: monthStart } } }),
+        prisma.invoice.aggregate({ _sum: { totalAmount: true, paidAmount: true }, where: { status: { not: 'PAID' } } }),
       ]);
 
     // Low stock = total non-expired quantity at or below the reorder level
@@ -40,6 +43,8 @@ router.get(
       pendingLab,
       admitted,
       revenueToday: Number(revenueToday._sum.amount || 0),
+      revenueMonth: Number(revenueMonth._sum.amount || 0),
+      outstanding: Number(outstanding._sum.totalAmount || 0) - Number(outstanding._sum.paidAmount || 0),
       alerts: {
         lowStock,
         expiring: expiringBatches.map((b) => ({

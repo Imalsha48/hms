@@ -5,6 +5,9 @@ const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { authorize } = require('../middleware/auth');
 const { hashPassword } = require('../services/authService');
+const { paging, parseLocalDate } = require('../utils/validate');
+const { createBackup } = require('../services/backupService');
+const { logEvent } = require('../middleware/audit');
 
 const ROLES = ['ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'LAB_STAFF', 'PHARMACIST', 'ACCOUNTANT'];
 
@@ -81,16 +84,48 @@ router.post(
   })
 );
 
-// GET /api/users/audit-logs  (view audit trail)
+// GET /api/users/audit-logs?action=DELETE&entity=patients&userId=3&from=&to=&page=1  (audit trail)
 router.get(
   '/audit-logs',
   asyncHandler(async (req, res) => {
-    const logs = await prisma.auditLog.findMany({
-      include: { user: { select: { username: true, role: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: Math.min(Number(req.query.limit) || 100, 500),
-    });
-    res.json(logs);
+    const { action, entity, userId, from, to } = req.query;
+    const p = paging(req.query, 25);
+    const where = {
+      ...(action && { action }),
+      ...(entity && { entity }),
+      ...(userId && { userId: Number(userId) }),
+      ...((from || to) && {
+        createdAt: {
+          ...(from && { gte: parseLocalDate(from) }),
+          ...(to && { lt: new Date(parseLocalDate(to).getTime() + 86400000) }),
+        },
+      }),
+    };
+    const [items, total, entities] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        include: { user: { select: { username: true, fullName: true, role: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip: p.skip,
+        take: p.take,
+      }),
+      prisma.auditLog.count({ where }),
+      prisma.auditLog.findMany({ distinct: ['entity'], select: { entity: true }, orderBy: { entity: 'asc' } }),
+    ]);
+    res.json({ items, total, page: p.page, pageSize: p.pageSize, entities: entities.map((e) => e.entity) });
+  })
+);
+
+// GET /api/users/backup  -> downloads a full backup of the database (admin only)
+router.get(
+  '/backup',
+  asyncHandler(async (req, res) => {
+    const { json } = await createBackup();
+    await logEvent(req.user.id, 'BACKUP', 'system', 'Manual backup downloaded', req.ip);
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    res.setHeader('Content-Type', 'application/json');
+    res.attachment(`hms-backup-${stamp}.json`);
+    res.send(json);
   })
 );
 

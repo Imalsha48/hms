@@ -1,0 +1,39 @@
+# Automatic backups (spec section 10)
+#  - Daily backup every night at 00:00 Sri Lanka time, kept for 7 days
+#  - Weekly full backup every Sunday, kept for 90 days
+# Backups appear under GitHub > Actions > "Database backup" > (a run) > Artifacts.
+# Needs a repository secret named DATABASE_URL (Settings > Secrets and variables > Actions).
+name: Database backup
+
+on:
+  schedule:
+    - cron: '30 18 * * *'   # 18:30 UTC = 00:00 Asia/Colombo
+  workflow_dispatch: {}      # also allows a manual "Run workflow" button
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+      - name: Create backup
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TZ: Asia/Colombo
+        run: node scripts/backup.js ../backup-out
+      - name: Decide retention (Sunday = weekly full backup)
+        id: kind
+        run: |
+          if [ "$(TZ=Asia/Colombo date +%u)" = "7" ]; then echo "name=weekly" >> $GITHUB_OUTPUT; echo "days=90" >> $GITHUB_OUTPUT;
+          else echo "name=daily" >> $GITHUB_OUTPUT; echo "days=7" >> $GITHUB_OUTPUT; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hms-${{ steps.kind.outputs.name }}-backup-${{ github.run_id }}
+          path: backup-out/*.json
+          retention-days: ${{ steps.kind.outputs.days }}
