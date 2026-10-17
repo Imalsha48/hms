@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import NoteAddIcon from '@mui/icons-material/NoteAddOutlined';
+import ReceiptIcon from '@mui/icons-material/ReceiptLongOutlined';
 import UploadIcon from '@mui/icons-material/UploadFileOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import PageHeader from '../components/PageHeader';
@@ -90,6 +91,9 @@ export default function PatientDetail() {
             {user.role === 'DOCTOR' && (
               <Button startIcon={<NoteAddIcon />} variant="contained" onClick={() => navigate(`/consultation?patientId=${p.id}`)}>New consultation</Button>
             )}
+            {hasRole('ACCOUNTANT', 'RECEPTIONIST') && (
+              <Button startIcon={<ReceiptIcon />} variant="outlined" onClick={() => navigate(`/billing/new?patientId=${p.id}`)}>Create invoice</Button>
+            )}
             {canEdit && <Button startIcon={<EditIcon />} variant="outlined" onClick={() => setEditOpen(true)}>Edit details</Button>}
           </Stack>
         }
@@ -155,7 +159,8 @@ export default function PatientDetail() {
           ]} />}
 
           {tab === 6 && <SimpleTable rows={p.invoices} empty="No invoices" columns={[
-            ['Invoice', (r) => r.invoiceNo], ['Date', (r) => fmtDate(r.createdAt)], ['Total', (r) => fmtMoney(r.totalAmount)],
+            ['Invoice', (r) => (hasRole('ACCOUNTANT', 'RECEPTIONIST')
+              ? <Link component="button" onClick={() => navigate(`/billing/invoices/${r.id}`)}>{r.invoiceNo}</Link> : r.invoiceNo)], ['Date', (r) => fmtDate(r.createdAt)], ['Total', (r) => fmtMoney(r.totalAmount)],
             ['Paid', (r) => fmtMoney(r.paidAmount)], ['Status', (r) => <StatusChip status={r.status} />],
           ]} />}
 

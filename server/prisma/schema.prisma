@@ -226,6 +226,9 @@ model Appointment {
   notes         String?           @db.Text
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
+  // Set once the consultation fee is billed, so it can't be billed twice
+  invoiceId     Int?
+  invoice       Invoice?          @relation(fields: [invoiceId], references: [id])
 
   medicalRecord MedicalRecord?
 
@@ -265,6 +268,8 @@ model Admission {
   dischargedAt  DateTime?
   reason        String?
   status        AdmissionStatus @default(ADMITTED)
+  invoiceId     Int?
+  invoice       Invoice?        @relation(fields: [invoiceId], references: [id])
 }
 
 // ---------- ELECTRONIC MEDICAL RECORDS (3.5) ----------
@@ -298,6 +303,8 @@ model Prescription {
   createdAt       DateTime           @default(now())
   dispensedAt     DateTime?
   dispensedById   Int?
+  invoiceId       Int?
+  invoice         Invoice?           @relation(fields: [invoiceId], references: [id])
 
   items           PrescriptionItem[]
 }
@@ -342,6 +349,8 @@ model LabRequest {
   reportMime        String?
   reportData        Bytes?      @db.LongBlob
   createdAt         DateTime    @default(now())
+  invoiceId         Int?
+  invoice           Invoice?    @relation(fields: [invoiceId], references: [id])
 
   @@index([status])
 }
@@ -383,13 +392,25 @@ model Invoice {
   invoiceNo  String        @unique // e.g. INV-20261016-0001
   patientId  Int
   patient    Patient       @relation(fields: [patientId], references: [id])
+  subtotal    Decimal      @default(0) @db.Decimal(12, 2)
+  discount    Decimal      @default(0) @db.Decimal(12, 2)
   totalAmount Decimal      @default(0) @db.Decimal(12, 2)
   paidAmount  Decimal      @default(0) @db.Decimal(12, 2)
   status     InvoiceStatus @default(UNPAID)
+  notes      String?
+  createdById Int?
   createdAt  DateTime      @default(now())
 
   items      InvoiceItem[]
   payments   Payment[]
+
+  // What this invoice charged for (each can only be billed once)
+  appointments  Appointment[]
+  labRequests   LabRequest[]
+  prescriptions Prescription[]
+  admissions    Admission[]
+
+  @@index([createdAt])
 }
 
 model InvoiceItem {
@@ -412,6 +433,8 @@ model Payment {
   reference  String?
   receivedBy Int?
   paidAt     DateTime      @default(now())
+
+  @@index([paidAt])
 }
 
 // ---------- STAFF (3.9) ----------

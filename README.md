@@ -98,6 +98,16 @@ The Vite dev server forwards `/api` calls to port 5000, so no extra config is ne
 | POST | `/api/pharmacy/medicines/:id/batches` | Pharmacist (receive stock) |
 | GET | `/api/pharmacy/prescriptions` (`?status=PENDING`) | Pharmacist, Doctor, Nurse |
 | POST | `/api/pharmacy/prescriptions/:id/dispense` | Pharmacist |
+| GET | `/api/billing/unbilled?patientId=` | Accountant, Receptionist |
+| GET / POST | `/api/billing/invoices` (`?status=&search=&from=&to=`) | Accountant, Receptionist |
+| GET / DELETE | `/api/billing/invoices/:id` | Delete (void, only if unpaid): Accountant |
+| POST | `/api/billing/invoices/:id/payments` | Accountant, Receptionist |
+| GET | `/api/admissions/wards` · `/api/admissions` | Logged in |
+| POST · PATCH | `/api/admissions` · `/:id/transfer` · `/:id/discharge` | Nurse, Doctor, Receptionist |
+| GET / POST / PUT | `/api/staff/employees` | Admin |
+| GET / PUT | `/api/staff/attendance` (`?date=`) | Admin |
+| GET / PATCH | `/api/staff/leaves` · `/:id` (approve / reject) | Admin |
+| GET · POST | `/api/staff/me` · `/me/check-in` · `/me/check-out` · `POST /api/staff/leaves` | Any staff member with an employee record |
 
 ## Business rules (appointments)
 - Cannot book in the past
@@ -113,6 +123,18 @@ The Vite dev server forwards `/api` calls to port 5000, so no extra config is ne
 - Dispensing uses **FEFO** (First Expiry, First Out). Expired batches are never dispensed
 - A prescription is only dispensed if **every** medicine has enough stock (no half-dispensing)
 - Uploaded files are stored in the database, so they survive restarts on cloud hosting
+
+## Business rules (billing, admissions, staff)
+- An invoice is built from **unbilled** charges: completed consultations, lab tests, dispensed prescriptions and discharged admissions
+- Each charge can be billed **only once** (`invoiceId` links it to its invoice). Prices are always recalculated on the server
+- Discount can't be negative or larger than the subtotal; a payment can't exceed the balance due
+- Invoice status updates automatically: `UNPAID -> PARTIAL -> PAID`
+- An unpaid invoice can be voided, which makes its charges billable again
+- A bed can hold one patient; claiming a bed is atomic, so two nurses can't admit into the same bed
+- Admission charge = days stayed (any part of a day counts, minimum 1) x ward daily rate
+- Check-in after 08:30 is marked `LATE`. One attendance record per employee per day
+- Leave can't overlap another pending or approved leave for the same person
+- All server date logic uses the hospital time zone (`TZ=Asia/Colombo`)
 
 ## Deployment
 See [DEPLOY.md](DEPLOY.md) (Aiven MySQL + Render, one URL for the whole system).

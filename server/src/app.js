@@ -35,9 +35,9 @@ app.use('/api/appointments', require('./routes/appointments'));
 app.use('/api/records', require('./routes/records'));
 app.use('/api/lab', require('./routes/lab'));
 app.use('/api/pharmacy', require('./routes/pharmacy'));
-// app.use('/api/billing',      require('./routes/billing'));
-// app.use('/api/admissions',   require('./routes/admissions'));
-// app.use('/api/staff',        require('./routes/staff'));
+app.use('/api/billing', require('./routes/billing'));
+app.use('/api/admissions', require('./routes/admissions'));
+app.use('/api/staff', require('./routes/staff'));
 // app.use('/api/reports',      require('./routes/reports'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api', notFound); // unknown API routes -> JSON 404

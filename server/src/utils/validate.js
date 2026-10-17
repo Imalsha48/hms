@@ -28,6 +28,21 @@ function parseLocalDate(str) {
   return new Date(y, m - 1, d);
 }
 
+// For DATE-only columns (@db.Date: attendance, leave, expiry).
+// MySQL stores just the date, and Prisma sends dates as UTC, so we build UTC midnight.
+// (Local midnight in Sri Lanka is 18:30 UTC the day before, which would save the wrong day.)
+function dateOnly(str) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str || '')) throw new AppError('Date must be in YYYY-MM-DD format');
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+// Today's date (hospital time zone) as a DATE-only value
+function todayDateOnly() {
+  const n = new Date();
+  return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()));
+}
+
 // Pagination from ?page=1&pageSize=20
 function paging(query, defaultSize = 20) {
   const page = Math.max(Number(query.page) || 1, 1);
@@ -35,4 +50,4 @@ function paging(query, defaultSize = 20) {
   return { skip: (page - 1) * pageSize, take: pageSize, page, pageSize };
 }
 
-module.exports = { requireFields, pick, toId, parseLocalDate, paging };
+module.exports = { requireFields, pick, toId, parseLocalDate, dateOnly, todayDateOnly, paging };

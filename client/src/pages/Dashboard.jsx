@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Grid, List, ListItem, ListItemText, Paper, Skeleton, Typography } from '@mui/material';
+import { Alert, Box, Button, Grid, List, ListItem, ListItemText, Paper, Skeleton, Typography } from '@mui/material';
+import ClockIcon from '@mui/icons-material/AccessTimeOutlined';
 import PeopleIcon from '@mui/icons-material/PeopleAltOutlined';
 import EventIcon from '@mui/icons-material/EventOutlined';
 import ScienceIcon from '@mui/icons-material/ScienceOutlined';
@@ -8,7 +9,35 @@ import PaymentsIcon from '@mui/icons-material/PaymentsOutlined';
 import PageHeader from '../components/PageHeader';
 import api, { errMsg } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { fmtDate, fmtMoney } from '../utils';
+import { fmtDate, fmtMoney, fmtTime } from '../utils';
+
+// Check in / check out for staff with an employee record (spec 3.9 attendance)
+function AttendanceCard() {
+  const [me, setMe] = useState(undefined);
+  const [error, setError] = useState('');
+  const load = () => api.get('/staff/me').then((r) => setMe(r.data)).catch(() => setMe(null));
+  useEffect(() => { load(); }, []);
+  if (!me) return null;
+
+  const act = async (kind) => {
+    try { await api.post(`/staff/me/${kind}`); setError(''); load(); } catch (err) { setError(errMsg(err)); }
+  };
+  const t = me.today;
+  return (
+    <Paper sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+      <ClockIcon color="primary" />
+      <Box sx={{ flexGrow: 1 }}>
+        <Typography fontWeight={700}>My attendance today</Typography>
+        <Typography variant="body2" color={error ? 'error' : 'text.secondary'}>
+          {error || (!t ? 'Not checked in yet'
+            : `Checked in ${fmtTime(t.checkIn)}${t.status === 'LATE' ? ' (late)' : ''}${t.checkOut ? ` · checked out ${fmtTime(t.checkOut)}` : ''}`)}
+        </Typography>
+      </Box>
+      {!t && <Button variant="contained" onClick={() => act('check-in')}>Check in</Button>}
+      {t && !t.checkOut && <Button variant="outlined" onClick={() => act('check-out')}>Check out</Button>}
+    </Paper>
+  );
+}
 
 function StatCard({ label, value, icon, color }) {
   return (
@@ -46,6 +75,7 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader title={`Welcome, ${user.fullName.split(' ')[0]}`} subtitle={fmtDate(new Date())} />
+      <AttendanceCard />
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {(stats || Array.from({ length: 4 })).map((s, i) => (
           <Grid item xs={12} sm={6} lg={stats && stats.length > 4 ? 2.4 : 3} key={i}>

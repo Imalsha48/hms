@@ -13,6 +13,9 @@ import EventIcon from '@mui/icons-material/EventOutlined';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import ScienceIcon from '@mui/icons-material/ScienceOutlined';
 import MedicationIcon from '@mui/icons-material/MedicationOutlined';
+import BedIcon from '@mui/icons-material/HotelOutlined';
+import ReceiptIcon from '@mui/icons-material/ReceiptLongOutlined';
+import BadgeIcon from '@mui/icons-material/BadgeOutlined';
 import { useAuth } from '../context/AuthContext';
 
 const DRAWER = 236;
@@ -24,7 +27,10 @@ export const NAV = [
   { to: '/appointments', label: 'Appointments', icon: <EventIcon />, roles: ['RECEPTIONIST', 'NURSE', 'DOCTOR'] },
   { to: '/lab', label: 'Laboratory', icon: <ScienceIcon />, roles: ['LAB_STAFF', 'DOCTOR', 'NURSE'] },
   { to: '/pharmacy', label: 'Pharmacy', icon: <MedicationIcon />, roles: ['PHARMACIST', 'DOCTOR'] },
+  { to: '/admissions', label: 'Admissions', icon: <BedIcon />, roles: ['NURSE', 'DOCTOR', 'RECEPTIONIST'] },
+  { to: '/billing', label: 'Billing', icon: <ReceiptIcon />, roles: ['ACCOUNTANT', 'RECEPTIONIST'] },
   { to: '/doctors', label: 'Doctors', icon: <DoctorIcon /> },
+  { to: '/staff', label: 'Staff', icon: <BadgeIcon /> },
 ];
 
 const prettyRole = (r) => r.replace('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -66,7 +72,7 @@ export default function Layout() {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed" color="inherit" sx={{ ml: { md: `${DRAWER}px` }, width: { md: `calc(100% - ${DRAWER}px)` }, borderBottom: '1px solid #e3e8ea', boxShadow: 'none' }}>
+      <AppBar position="fixed" color="inherit" className="no-print" sx={{ ml: { md: `${DRAWER}px` }, width: { md: `calc(100% - ${DRAWER}px)` }, borderBottom: '1px solid #e3e8ea', boxShadow: 'none' }}>
         <Toolbar>
           {isMobile && <IconButton onClick={() => setMobileOpen(true)} edge="start" sx={{ mr: 1 }}><MenuIcon /></IconButton>}
           <Box sx={{ flexGrow: 1 }} />
@@ -82,7 +88,7 @@ export default function Layout() {
         </Toolbar>
       </AppBar>
 
-      <Box component="nav" sx={{ width: { md: DRAWER }, flexShrink: 0 }}>
+      <Box component="nav" className="no-print" sx={{ width: { md: DRAWER }, flexShrink: 0 }}>
         <Drawer
           variant={isMobile ? 'temporary' : 'permanent'}
           open={isMobile ? mobileOpen : true}

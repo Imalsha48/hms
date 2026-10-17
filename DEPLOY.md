@@ -51,6 +51,7 @@ The last line makes sure your local commands go back to your local MySQL.
 | `DATABASE_URL` | the Aiven URL from step 1 |
 | `JWT_SECRET` | a long random string (different from your local one) |
 | `JWT_EXPIRES_IN` | `8h` |
+| `TZ` | `Asia/Colombo` |
 
 5. Click **Create Web Service**. The first build takes a few minutes.
 6. When it says **Live**, open the URL (`https://hms-xxxx.onrender.com`) and log in as `admin` / `Password123`.
