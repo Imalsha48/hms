@@ -11,6 +11,7 @@ import CollapseIcon from '@mui/icons-material/KeyboardArrowUp';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import PageHeader from '../components/PageHeader';
 import StatusChip from '../components/StatusChip';
+import ClinicalAlerts from '../components/ClinicalAlerts';
 import api, { errMsg } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { fmtDate, fmtDateTime, fmtMoney, fullName, todayStr } from '../utils';
@@ -196,6 +197,7 @@ export default function Pharmacy() {
               </Stack>
             </Stack>
             {rx.patient.allergies && <Alert severity="warning" sx={{ py: 0, mb: 1 }}>Allergies: {rx.patient.allergies}</Alert>}
+            {showAction && rx.alerts?.length > 0 && <Box sx={{ mb: 1 }}><ClinicalAlerts alerts={rx.alerts} compact /></Box>}
             <Table size="small">
               <TableBody>
                 {rx.items.map((i) => (

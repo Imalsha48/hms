@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Autocomplete, Box, Button, Checkbox, Chip, FormControlLabel, Grid, IconButton, Paper, Skeleton,
-  Stack, TextField, Typography,
+  Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel,
+  Grid, IconButton, Paper, Skeleton, Stack, TextField, Typography,
 } from '@mui/material';
+import ClinicalAlerts from '../components/ClinicalAlerts';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import PageHeader from '../components/PageHeader';
@@ -30,6 +31,9 @@ export default function Consultation() {
   const [labTestIds, setLabTestIds] = useState([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [alerts, setAlerts] = useState([]);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
 
   useEffect(() => {
     if (!patientId) return;
@@ -37,6 +41,17 @@ export default function Consultation() {
     api.get('/pharmacy/medicines').then((r) => setMedicines(r.data));
     api.get('/lab/tests').then((r) => setTests(r.data));
   }, [patientId]);
+
+  // Decision support: re-check the prescription (debounced) whenever it changes
+  const rxKey = JSON.stringify(lines.map((l) => [l.medicine?.id, l.dosage, l.frequency]));
+  useEffect(() => {
+    const items = lines.filter((l) => l.medicine).map((l) => ({ medicineId: l.medicine.id, dosage: l.dosage, frequency: l.frequency }));
+    if (!patientId || !items.length) { setAlerts([]); return undefined; }
+    const t = setTimeout(() => {
+      api.post('/clinical/check-prescription', { patientId: Number(patientId), items }).then((r) => setAlerts(r.data.alerts)).catch(() => {});
+    }, 400);
+    return () => clearTimeout(t);
+  }, [rxKey, patientId]); // eslint-disable-line
 
   if (!patientId) return <Alert severity="info">Open a consultation from an appointment or a patient profile.</Alert>;
   if (!patient) return error ? <Alert severity="error">{error}</Alert> : <Skeleton variant="rounded" height={400} />;
@@ -57,11 +72,20 @@ export default function Consultation() {
 
   const toggleTest = (id) => setLabTestIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
+  const hasHigh = alerts.some((a) => a.severity === 'high');
+
+  // High-risk alerts need a documented reason before saving
+  const trySave = () => {
+    if (hasHigh && !overrideReason.trim()) { setOverrideOpen(true); return; }
+    save();
+  };
+
   const save = async () => {
     setError('');
     setBusy(true);
     try {
       await api.post('/records', {
+        overrideReason: overrideReason.trim() || undefined,
         patientId: Number(patientId),
         appointmentId: appointmentId ? Number(appointmentId) : undefined,
         ...form,
@@ -73,8 +97,8 @@ export default function Consultation() {
       });
       navigate(`/patients/${patientId}`);
     } catch (err) {
-      setError(errMsg(err));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (err.response?.status === 409 && /High-risk alert/.test(errMsg(err))) setOverrideOpen(true);
+      else { setError(errMsg(err)); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     } finally {
       setBusy(false);
     }
@@ -146,6 +170,7 @@ export default function Consultation() {
               </Grid>
             ))}
             <Button startIcon={<AddIcon />} onClick={() => setLines([...lines, emptyLine()])} sx={{ alignSelf: 'flex-start' }}>Add medicine</Button>
+            {alerts.length > 0 && <Box sx={{ pt: 1 }}><ClinicalAlerts alerts={alerts} /></Box>}
           </Stack>
         </Paper>
 
@@ -165,11 +190,29 @@ export default function Consultation() {
 
         <Stack direction="row" spacing={1} justifyContent="flex-end">
           <Button onClick={() => navigate(-1)}>Cancel</Button>
-          <Button variant="contained" size="large" onClick={save} disabled={busy || !form.diagnosis.trim()}>
+          <Button variant="contained" size="large" color={hasHigh ? 'error' : 'primary'} onClick={trySave} disabled={busy || !form.diagnosis.trim()}>
             {busy ? 'Saving...' : appointmentId ? 'Save & complete appointment' : 'Save consultation'}
           </Button>
         </Stack>
       </Stack>
+
+      <Dialog open={overrideOpen} onClose={() => setOverrideOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Override high-risk alert?</DialogTitle>
+        <DialogContent>
+          <ClinicalAlerts alerts={alerts.filter((a) => a.severity === 'high')} compact />
+          <Typography variant="body2" sx={{ my: 2 }}>
+            Saving anyway requires a clinical reason. It is stored in the medical record and the audit log.
+          </Typography>
+          <TextField label="Reason for override" multiline minRows={2} value={overrideReason} autoFocus
+            onChange={(e) => setOverrideReason(e.target.value)} placeholder="e.g. Allergy was a mild rash; benefit outweighs risk, patient informed" />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => { setOverrideOpen(false); setOverrideReason(''); }}>Go back and change</Button>
+          <Button color="error" variant="contained" disabled={!overrideReason.trim()} onClick={() => { setOverrideOpen(false); save(); }}>
+            Override and save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

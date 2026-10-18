@@ -6,6 +6,7 @@ const AppError = require('../utils/AppError');
 const { authorize } = require('../middleware/auth');
 const { requireFields, pick, toId } = require('../utils/validate');
 const { summarise, dispense } = require('../services/pharmacyService');
+const { checkPrescription } = require('../services/clinicalService');
 
 const MED_FIELDS = ['name', 'genericName', 'form', 'strength', 'unitPrice', 'reorderLevel'];
 
@@ -84,23 +85,30 @@ router.get(
     const list = await prisma.prescription.findMany({
       where: req.query.status ? { status: req.query.status } : {},
       include: {
-        patient: { select: { id: true, patientNo: true, firstName: true, lastName: true, allergies: true } },
+        patient: { select: { id: true, patientNo: true, firstName: true, lastName: true, allergies: true, dateOfBirth: true } },
         doctor: { include: { user: { select: { fullName: true } } } },
         items: { include: { medicine: { include: { batches: true } } } },
       },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
-    // Attach available stock to each line so the pharmacist can see shortages before dispensing
-    res.json(
-      list.map((rx) => ({
+    // Attach available stock to each line so the pharmacist can see shortages before dispensing,
+    // and re-run decision support on pending prescriptions (second safety check before dispensing)
+    const out = [];
+    for (const rx of list) {
+      const alerts = rx.status === 'PENDING'
+        ? await checkPrescription(rx.patientId, rx.items.map((i) => ({ medicineId: i.medicineId, dosage: i.dosage, frequency: i.frequency })), { excludePrescriptionId: rx.id })
+        : [];
+      out.push({
         ...rx,
+        alerts,
         items: rx.items.map(({ medicine, ...item }) => {
           const { batches, ...m } = summarise(medicine);
           return { ...item, medicine: m, inStock: m.stock >= item.quantity };
         }),
-      }))
-    );
+      });
+    }
+    res.json(out);
   })
 );
 

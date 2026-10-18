@@ -5,7 +5,7 @@ laboratory, pharmacy, billing, inpatient admissions, staff and reports, with rol
 seven types of user.
 
 **Stack:** MySQL · Express · React · Node.js, with Prisma ORM, JWT authentication and Material UI.
-**Live demo:** _add your Render URL here_
+**Live demo:** [https://hms-ujh7.onrender.com]
 
 ## Demo logins
 
@@ -54,6 +54,7 @@ app, so the whole system runs on one URL. The database is MySQL on Aiven.
 | 4 Reliability: daily backup, recovery | Automatic daily/weekly backups, restore script (see below) |
 | 6 Database modules | `server/prisma/schema.prisma` (24 tables) |
 | 7 UI: login, dashboard, patient, appointment, billing screens | All implemented, including calendar view and printable receipt |
+| 12 Future enhancement: AI-based decision support | Implemented as explainable clinical decision support (see below) |
 
 ## Key business rules
 
@@ -90,6 +91,25 @@ app, so the whole system runs on one URL. The database is MySQL on Aiven.
 **Privacy and dates**
 - Receptionists and accountants can't see diagnoses, prescriptions or lab results.
 - Uploaded files are stored in the database. All server dates use the hospital time zone (`TZ=Asia/Colombo`).
+
+## Clinical decision support (spec section 12, "AI-Based Decision Support")
+
+An explainable, rule-based safety layer that checks prescriptions and lab results.
+
+| Where | What it checks |
+|---|---|
+| **Consultation** (live, as the doctor types) | Drug **allergies**, including whole drug classes (penicillin allergy also flags amoxicillin) and cross-reactions (penicillin and cephalosporins); **maximum daily dose** (e.g. paracetamol over 4 g/day); **drug interactions** with this prescription and with medicines from the last 30 days (e.g. warfarin + NSAID); **duplicate therapy**; age cautions (children, older adults on NSAIDs) |
+| **Pharmacy queue** | The same checks run again before dispensing, as a second safety net |
+| **Patient profile** | **Risk flags from lab results**, using the latest result per marker: fasting glucose in the diabetes or prediabetes range, high cholesterol or LDL, raised ALT, low platelets, anaemia, possible UTI. Also **polypharmacy** (5 or more medicines) |
+
+- **Explainable.** Every alert shows *what* was found, *why* it matters, and the *evidence* (for example `Recorded allergy: "Penicillin"`, or `3 tablets x 4 a day = 6000 mg/day`).
+- **Enforced.** High-risk alerts block saving unless the doctor enters an override reason. The reason is stored in the medical record and in the audit log (`CDS_OVERRIDE`).
+- **Rules are data.** Everything lives in `server/src/clinical/knowledge.js` (drug classes, interactions, dose limits, lab thresholds), separate from the engine in `decisionSupport.js`. A clinician can review or extend it without changing code.
+- **Where it could go next:** use the alert and override history as training data for a machine-learning risk model, keeping the rules as a safety baseline. For example, a model could predict deterioration from lab trends, with explanations of which values drove the prediction.
+
+The rule set is a demonstration for this project, not a validated clinical reference. A real deployment would use a maintained drug-interaction database.
+
+**Try it:** edit a patient's *Allergies* to `Penicillin`. Then, as `dr.perera`, start a consultation for that patient and add **Amoxicillin**.
 
 ## Security (spec section 4)
 - Passwords are hashed with bcrypt. Login gives the same error for a wrong username or a wrong password.
@@ -166,9 +186,10 @@ The admin role passes every role check.
 | Billing | `GET billing/unbilled`, `GET/POST billing/invoices`, `GET/DELETE billing/invoices/:id`, `POST billing/invoices/:id/payments` |
 | Admissions | `GET admissions/wards`, `GET/POST admissions`, `PATCH admissions/:id/transfer`, `/discharge` |
 | Staff | `GET/POST/PUT staff/employees`, `GET/PUT staff/attendance`, `GET/POST staff/leaves`, `PATCH staff/leaves/:id`, `GET staff/me`, `POST staff/me/check-in`, `/check-out` |
+| Decision support | `POST clinical/check-prescription`, `GET clinical/patients/:id/insights` |
 | Reports | `GET reports/:type?from=&to=` with type `patients`, `appointments`, `revenue`, `pharmacy`, `laboratory` or `staff`; add `&format=csv&table=0` for CSV |
 | Dashboard | `GET dashboard` |
 
 ## Future enhancements (spec section 12)
-Mobile app · patient portal · SMS and email reminders · telemedicine · insurance claims · AI-based
-decision support (for example drug-allergy warnings and risk scoring) · biometric login.
+Mobile app · patient portal · SMS and email reminders · telemedicine · insurance claims · biometric login ·
+machine-learning risk prediction on top of the rule-based decision support above.

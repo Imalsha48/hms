@@ -8,6 +8,8 @@
 const prisma = require('../lib/prisma');
 const AppError = require('../utils/AppError');
 const { requireFields } = require('../utils/validate');
+const { checkPrescription } = require('./clinicalService');
+const { logEvent } = require('../middleware/audit');
 
 async function doctorForUser(userId) {
   const doctor = await prisma.doctor.findUnique({ where: { userId } });
@@ -44,6 +46,21 @@ async function createConsultation(userId, body) {
     }
   }
 
+  // Decision support: high-risk alerts (allergy, overdose, dangerous interaction)
+  // stop the save unless the doctor records a reason for overriding them.
+  let overrideNote = null;
+  if (items.length) {
+    const high = (await checkPrescription(patientId, items)).filter((a) => a.severity === 'high');
+    if (high.length) {
+      const reason = String(body.overrideReason || '').trim();
+      if (!reason) {
+        throw new AppError(`High-risk alert: ${high.map((a) => a.title).join('; ')}. Change the prescription or give a reason to override.`, 409);
+      }
+      overrideNote = `[Decision support override] ${high.map((a) => a.title).join('; ')}. Reason: ${reason}`;
+      await logEvent(userId, 'CDS_OVERRIDE', 'records', overrideNote);
+    }
+  }
+
   return prisma.$transaction(async (tx) => {
     const record = await tx.medicalRecord.create({
       data: {
@@ -53,7 +70,7 @@ async function createConsultation(userId, body) {
         symptoms: body.symptoms || null,
         diagnosis: body.diagnosis,
         treatment: body.treatment || null,
-        notes: body.notes || null,
+        notes: [body.notes, overrideNote].filter(Boolean).join('\n') || null,
       },
     });
 

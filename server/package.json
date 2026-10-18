@@ -14,7 +14,8 @@
     "postinstall": "prisma generate",
     "backup": "node scripts/backup.js",
     "restore": "node scripts/restore.js",
-    "db:seed-demo": "node prisma/seed-demo.js"
+    "db:seed-demo": "node prisma/seed-demo.js",
+    "test": "node tests/decisionSupport.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

@@ -16,7 +16,7 @@ import { fmtDateTime } from '../utils';
 // Doctors are created on the Doctors page (they also need a doctor profile)
 const ROLES = ['ADMIN', 'NURSE', 'RECEPTIONIST', 'LAB_STAFF', 'PHARMACIST', 'ACCOUNTANT'];
 const pretty = (r) => r.replace('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-const ACTION_COLOR = { CREATE: 'success', UPDATE: 'info', DELETE: 'error', LOGIN: 'default', LOGIN_FAILED: 'warning', LOGOUT: 'default', PASSWORD_CHANGE: 'info', BACKUP: 'secondary' };
+const ACTION_COLOR = { CREATE: 'success', UPDATE: 'info', DELETE: 'error', LOGIN: 'default', LOGIN_FAILED: 'warning', LOGOUT: 'default', PASSWORD_CHANGE: 'info', BACKUP: 'secondary', CDS_OVERRIDE: 'error' };
 
 function UserDialog({ open, user, onClose, onSaved }) {
   const [f, setF] = useState({});

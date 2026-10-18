@@ -13,6 +13,7 @@ import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import PageHeader from '../components/PageHeader';
 import PatientForm from '../components/PatientForm';
 import StatusChip from '../components/StatusChip';
+import ClinicalAlerts from '../components/ClinicalAlerts';
 import api, { errMsg, openFile } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { age, fmtDate, fmtDateTime, fmtMoney, fullName } from '../utils';
@@ -46,6 +47,7 @@ export default function PatientDetail() {
   const [tab, setTab] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
   const [docTitle, setDocTitle] = useState('');
+  const [insights, setInsights] = useState(null);
   const fileRef = useRef();
   const canEdit = hasRole('RECEPTIONIST', 'NURSE', 'DOCTOR');
 
@@ -53,6 +55,11 @@ export default function PatientDetail() {
     api.get(`/patients/${id}`).then((r) => setP(r.data)).catch((e) => setError(errMsg(e)));
   }, [id]);
   useEffect(load, [load]);
+  // Decision support insights (clinical staff only)
+  useEffect(() => {
+    if (!hasRole('DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_STAFF')) return;
+    api.get(`/clinical/patients/${id}/insights`).then((r) => setInsights(r.data.flags)).catch(() => setInsights(null));
+  }, [id]); // eslint-disable-line
 
   const upload = async (e) => {
     const file = e.target.files[0];
@@ -100,6 +107,11 @@ export default function PatientDetail() {
       />
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {p.allergies && <Alert severity="warning" sx={{ mb: 2 }}><b>Allergies:</b> {p.allergies}</Alert>}
+      {insights?.length > 0 && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <ClinicalAlerts alerts={insights} title="Clinical insights from lab results and medicines" />
+        </Paper>
+      )}
       {p.clinicalHidden && <Alert severity="info" sx={{ mb: 2 }}>Diagnoses, prescriptions and lab results are only visible to clinical staff.</Alert>}
 
       <Paper>
